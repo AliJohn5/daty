@@ -1,6 +1,4 @@
-
-#ifndef DATY_HASH_TABLE_HPP
-#define DATY_HASH_TABLE_HPP
+#pragma once
 
 #include <cstddef>
 #include <functional>
@@ -324,5 +322,3 @@ public:
 
 
 } // namespace kvstore
-
-#endif

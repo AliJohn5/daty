@@ -1,5 +1,4 @@
-#ifndef DATY_HPP
-#define DATY_HPP
+#pragma once
 
 #include <cstddef>
 #include <functional>
@@ -83,5 +82,3 @@ namespace daty {
 
 
 } // namespace daty
-
-#endif // DATY_HPP

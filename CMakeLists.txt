@@ -13,16 +13,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Header-only hash table library
-add_library(daty INTERFACE)
+add_library(daty
+    src/serializer.cpp
+)
 
 target_include_directories(daty
-    INTERFACE
+    PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_compile_features(daty
-    INTERFACE
+    PUBLIC
         cxx_std_20
 )
 
@@ -38,65 +39,40 @@ endif()
 # Tests
 enable_testing()
 
-
-# Hash Table Tests
-add_executable(hash_table_test
-    tests/hash_table_test.cpp
-)
-target_link_libraries(hash_table_test
-    PRIVATE daty
-)
-add_test(
-    NAME HashTableTest
-    COMMAND hash_table_test
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
 )
 
+foreach(TEST_SOURCE ${TEST_SOURCES})
+    get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 
+    add_executable(${TEST_NAME} ${TEST_SOURCE})
 
-# Daty Tests
-add_executable(daty_test
-    tests/daty_test.cpp
-)
-target_link_libraries(daty_test
-    PRIVATE daty
-)
-add_test(
-    NAME DatyTest
-    COMMAND daty_test
-)
+    target_link_libraries(${TEST_NAME}
+        PRIVATE daty
+    )
 
-
-# Iterating Tests
-add_executable(iterating_test
-    tests/iterating_test.cpp
-)
-target_link_libraries(iterating_test
-    PRIVATE daty
-)
-add_test(
-    NAME IteratingTest
-    COMMAND iterating_test
-)
+    add_test(
+        NAME ${TEST_NAME}
+        COMMAND ${TEST_NAME}
+    )
+endforeach()
 
 
 # Examples
 
 # Hash Table Example
-add_executable(hash_table_example
-    examples/hash_table_example.cpp
+# Examples
+file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp"
 )
 
-target_link_libraries(hash_table_example
-    PRIVATE daty
-)
+foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
+    get_filename_component(EXAMPLE_NAME ${EXAMPLE_SOURCE} NAME_WE)
 
+    add_executable(${EXAMPLE_NAME} ${EXAMPLE_SOURCE})
 
-# Daty Example
-add_executable(daty_example
-    examples/daty_example.cpp
-)
-
-target_link_libraries(daty_example
-    PRIVATE daty
-)
-
+    target_link_libraries(${EXAMPLE_NAME}
+        PRIVATE daty
+    )
+endforeach()
