@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -279,6 +280,92 @@ template <typename Key, typename Value, typename Hash = std::hash<Key>> class Ha
 
     Iterator end() {
         return Iterator(nullptr, this, buckets_.size());
+    }
+
+    class ConstIterator {
+      private:
+        const Node* current_;
+        const HashTable* table_;
+        std::size_t bucket_index_;
+
+      public:
+        ConstIterator(const Node* current, const HashTable* table, std::size_t bucket_index)
+            : current_(current), table_(table), bucket_index_(bucket_index) {}
+
+        const std::pair<const Key, Value>& operator*() const {
+            return current_->data;
+        }
+
+        const std::pair<const Key, Value>* operator->() const {
+            return &current_->data;
+        }
+
+        bool operator==(const ConstIterator& other) const {
+            return current_ == other.current_ && table_ == other.table_;
+        }
+
+        bool operator!=(const ConstIterator& other) const {
+            return !(*this == other);
+        }
+
+        ConstIterator& operator++() {
+            if (current_->next != nullptr) {
+                current_ = current_->next.get();
+                return *this;
+            }
+
+            ++bucket_index_;
+
+            while (bucket_index_ < table_->buckets_.size() &&
+                   table_->buckets_[bucket_index_] == nullptr) {
+                ++bucket_index_;
+            }
+
+            if (bucket_index_ < table_->buckets_.size()) {
+                current_ = table_->buckets_[bucket_index_].get();
+            } else {
+                current_ = nullptr;
+            }
+
+            return *this;
+        }
+
+        ConstIterator operator++(int) {
+            ConstIterator previous = *this;
+            ++(*this);
+            return previous;
+        }
+    };
+
+    ConstIterator begin() const {
+        for (std::size_t i = 0; i < buckets_.size(); ++i) {
+            if (buckets_[i] != nullptr) {
+                return ConstIterator(buckets_[i].get(), this, i);
+            }
+        }
+
+        return end();
+    }
+
+    ConstIterator end() const {
+        return ConstIterator(nullptr, this, buckets_.size());
+    }
+
+    std::vector<std::pair<Key, Value>> toVector() const {
+        std::vector<std::pair<Key, Value>> ans;
+        ans.reserve(size_);
+
+        for (auto it = begin(); it != end(); ++it) {
+            ans.emplace_back(it->first, it->second);
+        }
+
+        return ans;
+    }
+
+    void insert(const std::vector<std::pair<Key, Value>>& data) {
+        for (const auto& [k, v] : data) {
+            insert(k, v);
+        }
     }
 };
 

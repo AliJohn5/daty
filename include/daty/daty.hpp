@@ -1,13 +1,16 @@
 #pragma once
 
+#include "daty/snapshot.hpp"
 #include "hash_table.hpp"
 #include <cstddef>
 #include <functional>
 #include <optional>
+#include <string>
 
 namespace daty {
 
-template <typename Key, typename Value, typename Hash = std::hash<Key>> class Daty {
+template <typename Key = std::string, typename Value = std::string, typename Hash = std::hash<Key>>
+class Daty {
 
   private:
     HashTable<Key, Value, Hash> hash_table_;
@@ -21,6 +24,16 @@ template <typename Key, typename Value, typename Hash = std::hash<Key>> class Da
 
     Daty(Daty&&) noexcept = default;
     Daty& operator=(Daty&&) noexcept = default;
+
+    void save(std::string path) {
+        Snapshot snapshout(path);
+        snapshout.save(hash_table_);
+    }
+
+    void load(std::string path) {
+        Snapshot snapshout(path);
+        snapshout.load(hash_table_);
+    }
 
     void put(const Key& key, const Value& value) {
         hash_table_.insert(key, value);

@@ -3,55 +3,34 @@
 
 #include <cassert>
 #include <iostream>
+#include <map>
+#include <ostream>
 #include <string>
 
 int main() {
 
     // String -> String
-    daty::Daty<std::string, std::string> users;
+    daty::Daty<std::string, std::string> originDB;
+    originDB.put("name", "Ali");
+    originDB.put("age", "26");
+    originDB.save("test.snapshot");
 
-    users.put("username", "Ali");
-    users.put("country", "Netherlands");
+    daty::Daty<std::string, std::string> restoredDB;
+    restoredDB.load("test.snapshot");
+    restoredDB.put("last", "john");
+    restoredDB.save("test.snapshot");
 
-    assert(users.get("username") == "Ali");
+    std::map<std::string, std::string> mp;
+    mp["name"] = "Ali";
+    mp["age"] = "26";
+    mp["last"] = "john";
 
-    // Integer -> String
-    daty::Daty<int, std::string> employees;
-
-    employees.put(101, "Ali");
-    employees.put(102, "John");
-
-    assert(employees.get(101) == "Ali");
-
-    // String -> Integer
-    daty::Daty<std::string, int> ages;
-
-    ages.put("Ali", 25);
-    ages.put("John", 30);
-
-    assert(ages.get("Ali") == 25);
-
-    // Integer -> Double
-    daty::Daty<int, double> prices;
-
-    prices.put(1, 19.99);
-    prices.put(2, 49.99);
-
-    assert(prices.get(1) == 19.99);
-
-    daty::Daty<std::string, int> table;
-
-    table.put("Ali", 25);
-    table.put("John", 30);
-    table.put("Alex", 22);
-
-    for (auto it = table.begin(); it != table.end(); ++it) {
-        std::cout << it->first << ": " << it->second << '\n';
+    for (const auto& [k, v] : restoredDB) {
+        std::cout << k << " " << v << std::endl;
+        assert(mp[k] == v);
+        mp.erase(k);
     }
 
-    for (const auto& [key, value] : table) {
-        std::cout << key << ": " << value << '\n';
-    }
-
+    assert(mp.size() == 0);
     std::cout << "All tests passed!\n";
 }

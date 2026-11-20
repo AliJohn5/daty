@@ -32,6 +32,7 @@ FetchContent_MakeAvailable(googletest)
 add_library(daty
     src/serializer.cpp
     src/file_manager.cpp
+    src/snapshot.cpp
 )
 
 target_include_directories(daty
