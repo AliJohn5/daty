@@ -7,26 +7,17 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
-#include <stdexcept>
-
 
 namespace daty {
 
-template <
-        typename Key,
-        typename Value,
-        typename Hash = std::hash<Key>
-    >
-class HashTable {
+template <typename Key, typename Value, typename Hash = std::hash<Key>> class HashTable {
 
-private:
-
+  private:
     struct Node {
         std::pair<const Key, Value> data;
         std::unique_ptr<Node> next;
 
-        Node(const Key& key, const Value& value)
-            : data(key, value), next(nullptr) {}
+        Node(const Key& key, const Value& value) : data(key, value), next(nullptr) {}
     };
 
     std::vector<std::unique_ptr<Node>> buckets_;
@@ -41,9 +32,7 @@ private:
 
     void rehash(std::size_t new_capacity) {
 
-        std::vector<std::unique_ptr<Node>> new_buckets(
-            new_capacity
-        );
+        std::vector<std::unique_ptr<Node>> new_buckets(new_capacity);
 
         for (auto& bucket : buckets_) {
 
@@ -53,8 +42,7 @@ private:
 
                 bucket = std::move(node->next);
 
-                std::size_t index =
-                    Hash{}(node->data.first) % new_capacity;
+                std::size_t index = Hash{}(node->data.first) % new_capacity;
 
                 node->next = std::move(new_buckets[index]);
 
@@ -65,15 +53,11 @@ private:
         buckets_ = std::move(new_buckets);
     }
 
-public:
-
-    explicit HashTable(std::size_t initial_capacity = 16)
-        : buckets_(initial_capacity) {
+  public:
+    explicit HashTable(std::size_t initial_capacity = 16) : buckets_(initial_capacity) {
 
         if (initial_capacity == 0) {
-            throw std::invalid_argument(
-                "Hash table capacity must be greater than zero"
-            );
+            throw std::invalid_argument("Hash table capacity must be greater than zero");
         }
     }
 
@@ -99,8 +83,7 @@ public:
         }
 
         // Check if we need to rehash before inserting
-        if (static_cast<float>(size_ + 1) >
-            buckets_.size() * MAX_LOAD_FACTOR) {
+        if (static_cast<float>(size_ + 1) > buckets_.size() * MAX_LOAD_FACTOR) {
 
             rehash(buckets_.size() * 2);
 
@@ -143,7 +126,7 @@ public:
 
         while (current != nullptr) {
 
-            if (current->data.first== key) {
+            if (current->data.first == key) {
                 return true;
             }
 
@@ -197,14 +180,13 @@ public:
         size_ = 0;
     }
 
-
     Value& at(const Key& key) {
         std::size_t index = hash(key);
 
         auto* current = buckets_[index].get();
 
         while (current != nullptr) {
-            if (current->data.first== key) {
+            if (current->data.first == key) {
                 return current->data.second;
             }
 
@@ -216,40 +198,30 @@ public:
 
     const Value& at(const Key& key) const {
         std::size_t index = hash(key);
-        
+
         auto* current = buckets_[index].get();
-        
+
         while (current != nullptr) {
-            if (current->data.first== key) {
+            if (current->data.first == key) {
                 return current->data.second;
             }
-        
+
             current = current->next.get();
         }
-    
+
         throw std::out_of_range("Key not found");
     }
 
-
-
-
     class Iterator {
-    private:
+      private:
         Node* current_;
         HashTable* table_;
         std::size_t bucket_index_;
-        
-    public:
-        Iterator(
-            Node* current,
-            HashTable* table,
-            std::size_t bucket_index
-        )
-            : current_(current),
-              table_(table),
-              bucket_index_(bucket_index) {}
 
-            
+      public:
+        Iterator(Node* current, HashTable* table, std::size_t bucket_index)
+            : current_(current), table_(table), bucket_index_(bucket_index) {}
+
         std::pair<const Key, Value>& operator*() const {
             return current_->data;
         }
@@ -259,36 +231,32 @@ public:
         }
 
         bool operator==(const Iterator& other) const {
-            return current_ == other.current_ &&
-                   table_ == other.table_;
+            return current_ == other.current_ && table_ == other.table_;
         }
 
         bool operator!=(const Iterator& other) const {
             return !(*this == other);
         }
 
-
         Iterator& operator++() {
             if (current_->next != nullptr) {
                 current_ = current_->next.get();
                 return *this;
             }
-        
+
             ++bucket_index_;
-        
-            while (
-                bucket_index_ < table_->buckets_.size() &&
-                table_->buckets_[bucket_index_] == nullptr
-            ) {
+
+            while (bucket_index_ < table_->buckets_.size() &&
+                   table_->buckets_[bucket_index_] == nullptr) {
                 ++bucket_index_;
             }
-        
+
             if (bucket_index_ < table_->buckets_.size()) {
                 current_ = table_->buckets_[bucket_index_].get();
             } else {
                 current_ = nullptr;
             }
-        
+
             return *this;
         }
 
@@ -298,7 +266,6 @@ public:
             return previous;
         }
     };
-
 
     Iterator begin() {
         for (std::size_t i = 0; i < buckets_.size(); ++i) {
@@ -313,12 +280,6 @@ public:
     Iterator end() {
         return Iterator(nullptr, this, buckets_.size());
     }
-
-
-   
 };
 
-
-
-
-} // namespace kvstore
+} // namespace daty

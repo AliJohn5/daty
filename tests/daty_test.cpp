@@ -5,8 +5,6 @@
 #include <iostream>
 #include <string>
 
-
-
 int main() {
 
     // String -> String
@@ -15,10 +13,7 @@ int main() {
     users.put("username", "Ali");
     users.put("country", "Netherlands");
 
-
-
     assert(users.get("username") == "Ali");
-
 
     // Integer -> String
     daty::Daty<int, std::string> employees;
@@ -44,7 +39,6 @@ int main() {
 
     assert(prices.get(1) == 19.99);
 
-
     daty::Daty<std::string, int> table;
 
     table.put("Ali", 25);
@@ -52,14 +46,12 @@ int main() {
     table.put("Alex", 22);
 
     for (auto it = table.begin(); it != table.end(); ++it) {
-        std::cout << it->first << ": "
-                  << it->second << '\n';
+        std::cout << it->first << ": " << it->second << '\n';
     }
 
     for (const auto& [key, value] : table) {
         std::cout << key << ": " << value << '\n';
     }
-
 
     std::cout << "All tests passed!\n";
 }
