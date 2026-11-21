@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include "daty/hash_table.hpp"
 
@@ -14,6 +15,6 @@ class Snapshot {
     void load(HashTable<std::string, std::string>& table);
 
   private:
-    std::string filePath_;
+    std::filesystem::path filePath_;
 };
 } // namespace daty

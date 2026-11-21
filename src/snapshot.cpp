@@ -8,14 +8,32 @@ Snapshot::Snapshot(const std::string& filePath) : filePath_(filePath) {}
 
 void Snapshot::save(const HashTable<std::string, std::string>& table) {
     auto serializedData = Serializer::serialize(table.toVector());
-    FileManager::write(filePath_, serializedData);
+
+    auto tempPath = filePath_;
+    tempPath += ".tmp";
+
+    try {
+        FileManager::write(tempPath, serializedData);
+        FileManager::rename(tempPath, filePath_.filename().string());
+    } catch (...) {
+        try {
+            FileManager::clean(tempPath);
+        } catch (...) {
+            // Preserve the original exception.
+        }
+        throw;
+    }
 }
 
 void Snapshot::load(HashTable<std::string, std::string>& table) {
     auto bytes = FileManager::read(filePath_);
+
     auto data = Serializer::deserialize(bytes);
-    table.clear();
-    table.insert(data);
+
+    HashTable<std::string, std::string> temporaryTable;
+    temporaryTable.insert(data);
+
+    table.swap(temporaryTable);
 }
 
 } // namespace daty

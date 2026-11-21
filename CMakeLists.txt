@@ -33,6 +33,7 @@ add_library(daty
     src/serializer.cpp
     src/file_manager.cpp
     src/snapshot.cpp
+    src/wal.cpp
 )
 
 target_include_directories(daty

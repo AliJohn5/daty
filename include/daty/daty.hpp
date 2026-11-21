@@ -1,11 +1,18 @@
+
 #pragma once
 
+#include "daty/serializer.hpp"
 #include "daty/snapshot.hpp"
 #include "hash_table.hpp"
+#include "daty/wal.hpp"
+
 #include <cstddef>
+#include <filesystem>
 #include <functional>
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace daty {
 
@@ -14,6 +21,65 @@ class Daty {
 
   private:
     HashTable<Key, Value, Hash> hash_table_;
+    std::optional<Wal> wal_;
+
+    void replayWal() {
+        if (!wal_) {
+            return;
+        }
+
+        const auto records = wal_->readAll();
+
+        for (const auto& record : records) {
+
+            if (record.operation == WalOperation::CLEAR) {
+                hash_table_.clear();
+                continue;
+            }
+
+            std::size_t offset = 0;
+
+            const auto [key, value] = Serializer::deserializeSingle(record.payload, offset);
+
+            if (offset != record.payload.size()) {
+                throw std::runtime_error("Invalid WAL record payload");
+            }
+
+            if (record.operation == WalOperation::PUT) {
+                hash_table_.insert(key, value);
+            } else if (record.operation == WalOperation::DELETE) {
+                hash_table_.remove(key);
+            }
+        }
+    }
+
+    void appendPut(const std::string& key, const std::string& value) {
+        if (!wal_) {
+            return;
+        }
+
+        std::vector<std::byte> payload;
+        std::size_t offset = 0;
+
+        Serializer::serializeSingle(key, value, payload, offset);
+
+        wal_->append(WalOperation::PUT, payload);
+    }
+
+    void appendDelete(const std::string& key) {
+        if (!wal_) {
+            return;
+        }
+
+        std::vector<std::byte> payload;
+        std::size_t offset = 0;
+
+        const std::string emptyValue;
+
+        Serializer::serializeSingle(key, emptyValue, payload, offset);
+
+        wal_->append(WalOperation::DELETE, payload);
+    }
 
   public:
     Daty() = default;
@@ -25,17 +91,47 @@ class Daty {
     Daty(Daty&&) noexcept = default;
     Daty& operator=(Daty&&) noexcept = default;
 
+    // --------------------------------------------------
+    // Persistence
+    // --------------------------------------------------
+
+    void open(const std::filesystem::path& path) {
+
+        static_assert(std::is_same_v<Key, std::string> && std::is_same_v<Value, std::string>,
+                      "WAL persistence currently supports only string keys and values");
+
+        hash_table_.clear();
+
+        const auto walPath = std::filesystem::path(path.string() + ".wal");
+
+        wal_.emplace(walPath);
+
+        if (std::filesystem::exists(path)) {
+            Snapshot snapshot(path.string());
+            snapshot.load(hash_table_);
+        }
+
+        replayWal();
+    }
+
     void save(std::string path) {
-        Snapshot snapshout(path);
-        snapshout.save(hash_table_);
+        Snapshot snapshot(path);
+        snapshot.save(hash_table_);
     }
 
     void load(std::string path) {
-        Snapshot snapshout(path);
-        snapshout.load(hash_table_);
+        open(path);
     }
 
+    // --------------------------------------------------
+    // CRUD
+    // --------------------------------------------------
+
     void put(const Key& key, const Value& value) {
+        if constexpr (std::is_same_v<Key, std::string> && std::is_same_v<Value, std::string>) {
+            appendPut(key, value);
+        }
+
         hash_table_.insert(key, value);
     }
 
@@ -44,15 +140,32 @@ class Daty {
     }
 
     bool remove(const Key& key) {
+        if (!hash_table_.contains(key)) {
+            return false;
+        }
+
+        if constexpr (std::is_same_v<Key, std::string> && std::is_same_v<Value, std::string>) {
+            appendDelete(key);
+        }
+
         return hash_table_.remove(key);
     }
 
-    std::size_t size() const {
-        return hash_table_.size();
+    void clear() {
+        if (wal_) {
+            const std::vector<std::byte> emptyPayload;
+            wal_->append(WalOperation::CLEAR, emptyPayload);
+        }
+
+        hash_table_.clear();
     }
 
-    void clear() {
-        hash_table_.clear();
+    // --------------------------------------------------
+    // Queries
+    // --------------------------------------------------
+
+    std::size_t size() const {
+        return hash_table_.size();
     }
 
     bool empty() const {

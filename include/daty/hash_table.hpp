@@ -66,6 +66,11 @@ template <typename Key, typename Value, typename Hash = std::hash<Key>> class Ha
     HashTable(const HashTable&) = delete;
     HashTable& operator=(const HashTable&) = delete;
 
+    void swap(HashTable& other) noexcept {
+        buckets_.swap(other.buckets_);
+        std::swap(size_, other.size_);
+    }
+
     void insert(const Key& key, const Value& value) {
 
         std::size_t index = hash(key);

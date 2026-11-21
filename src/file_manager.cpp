@@ -55,7 +55,7 @@ std::vector<std::byte> FileManager::read(const std::filesystem::path& path) {
 }
 
 void FileManager::write(const std::filesystem::path& path, std::span<const std::byte> data,
-           std::ios_base::openmode mode) {
+                        std::ios_base::openmode mode) {
     if (data.size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max())) {
         throw std::length_error("Data is too large to write");
     }
@@ -102,6 +102,31 @@ void FileManager::truncate(const std::filesystem::path& path) {
 
     if (!file) {
         throw std::runtime_error("Failed to close file");
+    }
+}
+
+void FileManager::rename(const std::filesystem::path& path, const std::string& newName) {
+    if (!std::filesystem::exists(path)) {
+        throw std::runtime_error("File does not exist: " + path.string());
+    }
+
+    if (newName.empty()) {
+        throw std::invalid_argument("New file name cannot be empty");
+    }
+
+    std::filesystem::path newPath = path.parent_path() / newName;
+
+    std::filesystem::rename(path, newPath);
+}
+
+void FileManager::clean(const std::filesystem::path& path) {
+    std::error_code error;
+
+    std::filesystem::remove(path, error);
+
+    if (error) {
+        throw std::runtime_error("Failed to clean file: " + path.string() + " (" + error.message() +
+                                 ")");
     }
 }
 
