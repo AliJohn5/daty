@@ -143,10 +143,13 @@ std::pair<std::string, std::string> Serializer::deserializeSingle(std::span<cons
     return {std::move(key), std::move(value)};
 }
 
-std::vector<std::byte> Serializer::serialize(const std::vector<Entry>& data) {
+std::vector<std::byte> Serializer::serialize(const std::vector<Entry>& data,
+                                             std::uint64_t db_sequence) {
 
     std::vector<std::byte> result;
     std::size_t offset = 0;
+
+    write_uint64(result, db_sequence, offset);
 
     if constexpr (sizeof(std::size_t) > sizeof(std::uint64_t)) {
         if (data.size() > std::numeric_limits<std::uint64_t>::max()) {
@@ -162,13 +165,19 @@ std::vector<std::byte> Serializer::serialize(const std::vector<Entry>& data) {
     return result;
 }
 
-std::vector<Serializer::Entry> Serializer::deserialize(std::span<const std::byte> data) {
+std::vector<Serializer::Entry> Serializer::deserialize(std::span<const std::byte> data,
+                                                       std::uint64_t* db_sequence) {
 
     if (data.size() < UINT64_SIZE) {
         throw std::out_of_range("Invalid serialized entry count");
     }
 
     std::size_t offset = 0;
+    const std::uint64_t sequence = read_uint64(data, offset);
+
+    if (db_sequence != nullptr) {
+        *db_sequence = sequence;
+    }
 
     // Read number of pairs
     const std::uint64_t data_length = read_uint64(data, offset);
@@ -180,7 +189,7 @@ std::vector<Serializer::Entry> Serializer::deserialize(std::span<const std::byte
     }
 
     std::vector<Serializer::Entry> ans;
-    ans.reserve(static_cast<std::size_t>(data_length));
+    ans.reserve(static_cast<std::size_t>(data_length) + 1);
 
     for (std::size_t i = 0; i < data_length; ++i) {
         auto deserializedData = deserializeSingle(data, offset);
@@ -188,6 +197,7 @@ std::vector<Serializer::Entry> Serializer::deserialize(std::span<const std::byte
     }
 
     // Reject unexpected trailing bytes.
+
     if (offset != data.size()) {
         throw std::runtime_error("Unexpected trailing bytes");
     }

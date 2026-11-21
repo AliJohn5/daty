@@ -90,3 +90,7 @@ TEST_F(DatyWalTest, RecoversFromSnapshotAndWal) {
         EXPECT_EQ(db.get("name"), "Yousef");
     }
 }
+
+
+
+

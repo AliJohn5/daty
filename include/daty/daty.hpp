@@ -3,12 +3,13 @@
 
 #include "daty/serializer.hpp"
 #include "daty/snapshot.hpp"
-#include "hash_table.hpp"
 #include "daty/wal.hpp"
+#include "hash_table.hpp"
 
 #include <cstddef>
 #include <filesystem>
 #include <functional>
+#include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -22,6 +23,7 @@ class Daty {
   private:
     HashTable<Key, Value, Hash> hash_table_;
     std::optional<Wal> wal_;
+    std::string path_;
 
     void replayWal() {
         if (!wal_) {
@@ -64,6 +66,7 @@ class Daty {
         Serializer::serializeSingle(key, value, payload, offset);
 
         wal_->append(WalOperation::PUT, payload);
+        hash_table_.increaseOperationCounter();
     }
 
     void appendDelete(const std::string& key) {
@@ -79,11 +82,21 @@ class Daty {
         Serializer::serializeSingle(key, emptyValue, payload, offset);
 
         wal_->append(WalOperation::DELETE, payload);
+        hash_table_.increaseOperationCounter();
     }
 
   public:
     Daty() = default;
-    ~Daty() = default;
+    ~Daty() {
+        if constexpr (std::is_same_v<Key, std::string> && std::is_same_v<Value, std::string>) {
+            try {
+                if (!path_.empty())
+                    save(path_);
+            } catch (const std::exception& e) {
+                std::cerr << "Failed to save Daty: " << e.what() << '\n';
+            }
+        }
+    }
 
     Daty(const Daty&) = delete;
     Daty& operator=(const Daty&) = delete;
@@ -109,6 +122,7 @@ class Daty {
         if (std::filesystem::exists(path)) {
             Snapshot snapshot(path.string());
             snapshot.load(hash_table_);
+            wal_->setDataBaseSequence(snapshot.db_sequence);
         }
 
         replayWal();
@@ -120,7 +134,8 @@ class Daty {
     }
 
     void load(std::string path) {
-        open(path);
+        path_ = path;
+        open(path_);
     }
 
     // --------------------------------------------------
@@ -155,6 +170,7 @@ class Daty {
         if (wal_) {
             const std::vector<std::byte> emptyPayload;
             wal_->append(WalOperation::CLEAR, emptyPayload);
+            hash_table_.increaseOperationCounter();
         }
 
         hash_table_.clear();

@@ -3,14 +3,16 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
+#include <limits>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
-using daty::Serializer;
+    using daty::Serializer;
 
 // ============================================================
 // Single-entry tests
@@ -170,6 +172,61 @@ void test_collection_with_binary_data() {
 }
 
 // ============================================================
+// Sequence tests
+// ============================================================
+
+void test_sequence_serialization() {
+    const std::vector<Serializer::Entry> entries = {{"name", "Ali"}, {"project", "daty"}};
+
+    const std::uint64_t expected_sequence = 42;
+
+    const auto bytes = Serializer::serialize(entries, expected_sequence);
+
+    std::uint64_t actual_sequence = 0;
+
+    const auto decoded = Serializer::deserialize(bytes, &actual_sequence);
+
+    assert(actual_sequence == expected_sequence);
+    assert(decoded == entries);
+}
+
+void test_sequence_zero() {
+    const std::vector<Serializer::Entry> entries = {{"key", "value"}};
+
+    const auto bytes = Serializer::serialize(entries, 0);
+
+    std::uint64_t sequence = 999;
+
+    Serializer::deserialize(bytes, &sequence);
+
+    assert(sequence == 0);
+}
+
+void test_sequence_max_uint64() {
+    const std::vector<Serializer::Entry> entries = {{"key", "value"}};
+
+    const std::uint64_t expected_sequence = std::numeric_limits<std::uint64_t>::max();
+
+    const auto bytes = Serializer::serialize(entries, expected_sequence);
+
+    std::uint64_t sequence = 0;
+
+    Serializer::deserialize(bytes, &sequence);
+
+    assert(sequence == expected_sequence);
+}
+
+void test_deserialize_without_sequence_pointer() {
+    const std::vector<Serializer::Entry> entries = {{"key1", "value1"}, {"key2", "value2"}};
+
+    const auto bytes = Serializer::serialize(entries, 123);
+
+    const auto decoded = Serializer::deserialize(bytes);
+
+    assert(decoded == entries);
+}
+
+// ============================================================
 // Invalid collection tests
 // ============================================================
 
@@ -189,7 +246,7 @@ void test_truncated_collection_header() {
 
 void test_invalid_entry_count() {
     // An entry count of UINT64_MAX with no entry data.
-    std::vector<std::byte> bytes(8, std::byte{0xFF});
+    std::vector<std::byte> bytes(16, std::byte{0xFF});
 
     bool exception_thrown = false;
 
@@ -226,7 +283,7 @@ void test_truncated_entry_header() {
     auto bytes = Serializer::serialize(entries);
 
     // Remove part of the entry header.
-    bytes.resize(8 + 10);
+    bytes.resize(16 + 10);
 
     bool exception_thrown = false;
 
@@ -275,6 +332,12 @@ int main() {
     test_multiple_entries();
     test_collection_with_empty_strings();
     test_collection_with_binary_data();
+
+    // Sequence tests
+    test_sequence_serialization();
+    test_sequence_zero();
+    test_sequence_max_uint64();
+    test_deserialize_without_sequence_pointer();
 
     // Invalid-data tests
     test_truncated_collection_header();

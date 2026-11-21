@@ -14,9 +14,11 @@ class Serializer {
   public:
     using Entry = std::pair<std::string, std::string>;
 
-    static std::vector<std::byte> serialize(const std::vector<Entry>& data);
+    static std::vector<std::byte> serialize(const std::vector<Entry>& data,
+                                            std::uint64_t db_sequence = 0);
 
-    static std::vector<Entry> deserialize(std::span<const std::byte> data);
+    static std::vector<Entry> deserialize(std::span<const std::byte> data,
+                                          std::uint64_t* db_sequence = nullptr);
 
     static void serializeSingle(const std::string& key, const std::string& value,
                                 std::vector<std::byte>& bytes, std::size_t& offset);

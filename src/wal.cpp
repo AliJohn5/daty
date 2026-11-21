@@ -4,6 +4,7 @@
 #include "file_manager.hpp"
 
 #include <array>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -21,9 +22,11 @@ constexpr std::size_t MAGIC_SIZE = 4;
 constexpr std::size_t VERSION_SIZE = 1;
 constexpr std::size_t OPERATION_SIZE = 1;
 constexpr std::size_t LENGTH_SIZE = 8;
+constexpr std::size_t SEQENCE_SIZE = 8;
 constexpr std::size_t CHECKSUM_SIZE = 4;
 
-constexpr std::size_t HEADER_SIZE = MAGIC_SIZE + VERSION_SIZE + OPERATION_SIZE + LENGTH_SIZE;
+constexpr std::size_t HEADER_SIZE =
+    MAGIC_SIZE + VERSION_SIZE + OPERATION_SIZE + LENGTH_SIZE + SEQENCE_SIZE;
 
 // --------------------------------------------------
 // Integer encoding
@@ -97,7 +100,8 @@ std::uint32_t calculateCRC32(std::span<const std::byte> data) {
 // Record encoding
 // --------------------------------------------------
 
-std::vector<std::byte> encodeRecord(WalOperation operation, std::span<const std::byte> payload) {
+std::vector<std::byte> encodeRecord(WalOperation operation, std::span<const std::byte> payload,
+                                    std::uint64_t sequence) {
     if (operation != WalOperation::PUT && operation != WalOperation::DELETE &&
         operation != WalOperation::CLEAR) {
         throw std::invalid_argument("Invalid WAL operation");
@@ -123,6 +127,9 @@ std::vector<std::byte> encodeRecord(WalOperation operation, std::span<const std:
 
     // Operation
     record.push_back(static_cast<std::byte>(operation));
+
+    // sequence
+    writeUint64(record, sequence);
 
     // Payload length
     writeUint64(record, static_cast<std::uint64_t>(payload.size()));
@@ -153,12 +160,15 @@ WalRecord decodeRecord(std::span<const std::byte> data, std::size_t offset,
         throw std::runtime_error("Invalid WAL operation");
     }
 
+    const std::size_t sequenceOffset = MAGIC_SIZE + VERSION_SIZE + OPERATION_SIZE;
+    const std::uint64_t sequence = readUint64(data, sequenceOffset);
+
     const std::size_t payloadOffset = offset + HEADER_SIZE;
 
     std::vector<std::byte> payload(data.begin() + payloadOffset,
                                    data.begin() + payloadOffset + payloadLength);
 
-    return WalRecord{operation, std::move(payload)};
+    return WalRecord{operation, std::move(payload), sequence};
 }
 
 } // namespace
@@ -169,14 +179,19 @@ WalRecord decodeRecord(std::span<const std::byte> data, std::size_t offset,
 
 Wal::Wal(std::filesystem::path path) : path_(std::move(path)) {}
 
+void Wal::setDataBaseSequence(std::uint64_t db_sequence) {
+    db_sequence_ = db_sequence;
+}
 // --------------------------------------------------
 // Append
 // --------------------------------------------------
 
 void Wal::append(WalOperation operation, std::span<const std::byte> payload) {
-    const auto record = encodeRecord(operation, payload);
+    const auto record = encodeRecord(operation, payload, sequence_ + db_sequence_);
 
     FileManager::append(path_, record);
+
+    ++sequence_;
 }
 
 // --------------------------------------------------
@@ -225,7 +240,7 @@ std::vector<WalRecord> Wal::readAll() const {
         }
 
         // Read payload length.
-        const std::uint64_t payloadLength = readUint64(data, offset + 6);
+        const std::uint64_t payloadLength = readUint64(data, offset + 14);
 
         if (operation == static_cast<std::uint8_t>(WalOperation::CLEAR) && payloadLength != 0) {
             throw std::runtime_error("Invalid CLEAR record");
@@ -242,6 +257,15 @@ std::vector<WalRecord> Wal::readAll() const {
         const std::size_t payloadSize = static_cast<std::size_t>(payloadLength);
 
         const std::size_t recordSize = HEADER_SIZE + payloadSize + CHECKSUM_SIZE;
+
+        // Cheak if it is new operation
+        const std::size_t sequenceOffset = MAGIC_SIZE + VERSION_SIZE + OPERATION_SIZE;
+        const std::uint64_t sequence = readUint64(data, sequenceOffset);
+
+        if (sequence <= db_sequence_) {
+            offset += recordSize;
+            continue;
+        }
 
         // Read stored checksum.
         const std::size_t checksumOffset = offset + HEADER_SIZE + payloadSize;

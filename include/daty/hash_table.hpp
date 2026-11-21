@@ -24,6 +24,8 @@ template <typename Key, typename Value, typename Hash = std::hash<Key>> class Ha
     std::vector<std::unique_ptr<Node>> buckets_;
 
     std::size_t size_ = 0;
+    std::uint64_t db_sequence_ = 0;
+    std::uint64_t operationsCounter = 1;
 
     static constexpr float MAX_LOAD_FACTOR = 0.75f;
 
@@ -66,9 +68,28 @@ template <typename Key, typename Value, typename Hash = std::hash<Key>> class Ha
     HashTable(const HashTable&) = delete;
     HashTable& operator=(const HashTable&) = delete;
 
+    
+
     void swap(HashTable& other) noexcept {
         buckets_.swap(other.buckets_);
         std::swap(size_, other.size_);
+        std::swap(db_sequence_, other.db_sequence_);
+    }
+
+    std::uint64_t getSequence() const {
+        return db_sequence_;
+    }
+
+    std::uint64_t getOperationCounter() const {
+        return operationsCounter;
+    }
+
+    void increaseOperationCounter() {
+        ++operationsCounter;
+    }
+
+    void setSequence(std::uint64_t value) {
+        db_sequence_ = value;
     }
 
     void insert(const Key& key, const Value& value) {
